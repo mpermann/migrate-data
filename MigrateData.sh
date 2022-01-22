@@ -4,14 +4,17 @@
 # that has an existing account setup. The script is generally run from the Jamf Pro admin
 # account with root privileges. The Time Machine backup is used as the source of the
 # transfer. The easiest way to populate the drive paths is to drag and drop the destination
-# in the terminal window and the proper path will be entered.
+# into the terminal window and the proper path will be entered.
+#
+# Updated to use new path to cups directory in macOS Catalina and new method of getting the
+# current user using bash or zsh.
 # 
-# VERSION 1.1.1
+# VERSION 1.2
 # Written by: Michael Permann
 # Created On: September 06, 2018
-# Updated On: October 16, 2018
+# Updated On: October 31, 2020
 
-CURRENT_USER=$(/usr/bin/python -c 'from SystemConfiguration import SCDynamicStoreCopyConsoleUser; import sys; username = (SCDynamicStoreCopyConsoleUser(None, None, None) or [None])[0]; username = [username,""][username in [u"loginwindow", None, u""]]; sys.stdout.write(username + "\n");')
+CURRENT_USER=$( scutil <<< "show State:/Users/ConsoleUser" | awk -F': ' '/[[:space:]]+Name[[:space:]]:/ { if ( $2 != "loginwindow" ) { print $2 }}' )
 USER_ID=$(/usr/bin/id -u "$CURRENT_USER")
 DATA_MIGRATION_LOG=/Users/Shared/DataMigrationLog.txt
 
@@ -27,7 +30,7 @@ fi
 /bin/echo $(date) > "$DATA_MIGRATION_LOG"
 /bin/echo ""
 /bin/echo "Provide path to latest backup of Macintosh HD"
-/bin/echo "Example: /Volumes/Backup/Backups.backupdb/John\ Doe\ 54321/Latest/Macintosh HD"
+/bin/echo "Example: /Volumes/Backup/Backups.backupdb/John\ Doe\ 54321/Latest/Macintosh HD\ - Data"
 read -p 'Path: ' latestBackupPath
 /bin/echo ""
 /bin/echo "Provide user short name from backup drive"
@@ -92,25 +95,13 @@ else
 fi
 
 /bin/echo "********** Start Migration of printer settings errors **********" >> "$DATA_MIGRATION_LOG"
-/bin/cp -p "$latestBackupPath/etc/cups/printers.conf" /etc/cups/printers.conf 2>> "$DATA_MIGRATION_LOG"
-/bin/cp -pR "$latestBackupPath/etc/cups/ppd/" /etc/cups/ppd/ 2>> "$DATA_MIGRATION_LOG"
+/bin/cp -p "$latestBackupPath/private/etc/cups/printers.conf" /private/etc/cups/printers.conf 2>> "$DATA_MIGRATION_LOG"
+/bin/cp -pR "$latestBackupPath/private/etc/cups/ppd/" /private/etc/cups/ppd/ 2>> "$DATA_MIGRATION_LOG"
 /bin/echo "**********  End Migration of printer settings errors  **********" >> "$DATA_MIGRATION_LOG"
 
 /bin/echo "********** Start Migration of user data errors **********" >> "$DATA_MIGRATION_LOG"
 /usr/bin/rsync -plarv "$latestBackupPath/Users/$oldShortName/" /Users/"$newShortName"/ 2>> "$DATA_MIGRATION_LOG"
 /bin/echo "**********  End Migration of user data errors  **********" >> "$DATA_MIGRATION_LOG"
-
-if [[ -e "$latestBackupPath/Applications/Boardmaker v6/Symbol Folder/My Symbols/Mine.idx" ]]
-then
-  /bin/echo "********** Start Migration of non-user data errors **********" >> "$DATA_MIGRATION_LOG"
-  /bin/echo "**********  Boardmaker user created symbols found  **********" >> "$DATA_MIGRATION_LOG"
-  /bin/cp -p "$latestBackupPath/Applications/Boardmaker v6/Symbol Folder/My Symbols/Mine.idx" "/Applications/Boardmaker v6/Symbol Folder/My Symbols/Mine.idx" 2>> "$DATA_MIGRATION_LOG"
-  /bin/cp -p "$latestBackupPath/Applications/Boardmaker v6/Symbol Folder/My Symbols/Mine.pc2" "/Applications/Boardmaker v6/Symbol Folder/My Symbols/Mine.pc2" 2>> "$DATA_MIGRATION_LOG"
-  /bin/echo "**********  Boardmaker user created symbols copied **********" >> "$DATA_MIGRATION_LOG"
-  /bin/echo "**********  End Migration of non-user data errors  **********" >> "$DATA_MIGRATION_LOG"
-else
-  /bin/echo "********** Boardmaker user created symbols not found **********" >> "$DATA_MIGRATION_LOG"
-fi
 
 /bin/echo "Permissions are about to be fixed on the user's home folder in Finder" >> "$DATA_MIGRATION_LOG"
 /bin/launchctl asuser "$USER_ID" /usr/bin/osascript -e 'tell application "Finder" to open information window of folder "'"$newShortName"'" of folder "Users" of startup disk'
