@@ -9,10 +9,10 @@
 # Updated to use new path to cups directory in macOS Catalina and new method of getting the
 # current user using bash or zsh.
 # 
-# VERSION 1.2
+# VERSION 1.2.1
 # Written by: Michael Permann
 # Created On: September 06, 2018
-# Updated On: October 31, 2020
+# Updated On: February 02, 2022
 
 CURRENT_USER=$( scutil <<< "show State:/Users/ConsoleUser" | awk -F': ' '/[[:space:]]+Name[[:space:]]:/ { if ( $2 != "loginwindow" ) { print $2 }}' )
 USER_ID=$(/usr/bin/id -u "$CURRENT_USER")
@@ -26,6 +26,10 @@ if [[ $(id -u) -ne 0 ]]; then
   /bin/echo "Example: sudo MigrateData.sh"
   exit 1
 fi
+
+# Remove SecureToken from the Jamf Pro admin account so account doesn't appear at FileVault unlock screen
+fdesetup remove -user "$CURRENT_USER"
+/bin/echo "$(date) SecureToken removed from $CURRENT_USER" > "$DATA_MIGRATION_LOG"
 
 /bin/echo $(date) > "$DATA_MIGRATION_LOG"
 /bin/echo ""
