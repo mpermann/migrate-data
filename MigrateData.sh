@@ -31,7 +31,7 @@ fi
 fdesetup remove -user "$CURRENT_USER"
 /bin/echo "$(date) SecureToken removed from $CURRENT_USER" > "$DATA_MIGRATION_LOG"
 
-/bin/echo $(date) > "$DATA_MIGRATION_LOG"
+/bin/echo $(date) >> "$DATA_MIGRATION_LOG"
 /bin/echo ""
 /bin/echo "Provide path to latest backup of Macintosh HD"
 /bin/echo "Example: /Volumes/Backup/Backups.backupdb/John\ Doe\ 54321/Latest/Macintosh HD\ - Data"
